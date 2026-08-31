@@ -210,7 +210,7 @@
         const msg = document.getElementById('response-msg');
         msg.style.display = "block";
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/v1/report', {
+            const res = await fetch('/api/v1/report', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
