@@ -243,7 +243,7 @@
         alertBox.style.display = "block";
 
         try {
-            const res = await fetch(`http://127.0.0.1:8000/api/v1/calculate-risk?rainfall_mm=${rainfall}&river_level_m=${river}&population_high=${pop}`, { method: 'POST' });
+            const res = await fetch(`/api/v1/calculate-risk?rainfall_mm=${rainfall}&river_level_m=${river}&population_high=${pop}`, { method: 'POST' });
             const result = await res.json();
             if(res.ok) {
                 riskMsg.className = "info";
@@ -266,7 +266,7 @@
     // डेटाबेसबाट रिपोर्टहरू लोड गर्ने
     async function loadReports() {
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/v1/reports');
+            const res = await fetch("/api/v1/reports");
             const result = await res.json();
             if(res.ok && result.data) {
                 const tbody = document.getElementById('tableBody');
