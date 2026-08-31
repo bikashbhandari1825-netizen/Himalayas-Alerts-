@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nepal Suraksha - Advanced Disaster System</title>
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        h2 { color: #d9534f; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { background-color: #d9534f; color: white; padding: 12px; border: none; border-radius: 5px; width: 100%; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #c9302c; }
+        .risk-btn { background-color: #0275d8; }
+        .fetch-btn { background-color: #5cb85c; }
+        #response-msg, #risk-msg, #alert-box { margin-top: 15px; padding: 12px; border-radius: 5px; text-align: center; font-weight: bold; display: none; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .critical-alert { background-color: #f8d7da; color: #721c24; border: 2px solid #d9534f; }
+        #map { height: 300px; margin-bottom: 15px; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; color: #333; }
+    </style>
+</head>
+<body>
+
+<!-- १. नक्सा र रिपोर्ट पठाउने फारम -->
+<div class="container">
+    <h2>🚨 विपद् रिपोर्टिङ र लाइभ नक्सा (Map)</h2>
+    <p><b>स्थान छन्नको लागि नक्सामा क्लिक गर्नुहोस्:</b></p>
+    <div id="map"></div>
+
+    <form id="reportForm">
+        <div class="form-group">
+            <label>विपद्को प्रकार:</label>
+            <select id="type">
+                <option value="Flood">बाढी (Flood)</option>
+                <option value="Landslide">पहिरो (Landslide)</option>
+                <option value="Earthquake">भूकम्प (Earthquake)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>विवरण:</label>
+            <textarea id="description" rows="2" required></textarea>
+        </div>
+        <div class="form-group">
+            <label>Latitude:</label>
+            <input type="number" step="any" id="latitude" value="27.7172" required readonly>
+        </div>
+        <div class="form-group">
+            <label>Longitude:</label>
+            <input type="number" step="any" id="longitude" value="85.3240" required readonly>
+        </div>
+        <div class="form-group">
+            <label>User ID:</label>
+            <input type="number" id="reported_by" value="1" required>
+        </div>
+        <button type="submit">रिपोर्ट पठाउनुहोस्</button>
+    </form>
+    <div id="response-msg"></div>
+</div>
+
+<!-- २. जोखिम क्याल्कुलेटर र इमर्जेन्सी अलर्ट -->
+<div class="container">
+    <h2>⚡ जोखिम मापन र आपतकालीन चेतावनी (Risk & Alert)</h2>
+    <form id="riskForm">
+        <div class="form-group">
+            <label>वर्षा (Rainfall in mm):</label>
+            <input type="number" step="any" id="rainfall_mm" value="120" required>
+        </div>
+        <div class="form-group">
+            <label>नदीको सतह (River Level in meters):</label>
+            <input type="number" step="any" id="river_level_m" value="8.5" required>
+        </div>
+        <div class="form-group">
+            <label>उच्च जनसघनता क्षेत्र? (Population High):</label>
+            <select id="population_high">
+                <option value="true">छ (True)</option>
+                <option value="false">छैन (False)</option>
+            </select>
+        </div>
+        <button type="submit" class="risk-btn">जोखिम जाँच गर्नुहोस् र अलर्ट हेर्नुहोस्</button>
+    </form>
+    <div id="risk-msg"></div>
+    <div id="alert-box"></div>
+</div>
+
+<!-- ३. एडमिन रिपोर्ट टेबल -->
+<div class="container">
+    <h2>📋 दर्ता भएका रिपोर्टहरूको सूची (Admin View)</h2>
+    <button id="loadReportsBtn" class="fetch-btn">डाटाबेसबाट रिपोर्टहरू लोड गर्नुहोस्</button>
+    <table id="reportsTable" style="display:none;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>प्रकार</th>
+                <th>विवरण</th>
+                <th>स्थान (Lat, Long)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // म्याप सेटअप (काठमाडौं केन्द्रित)
+    const map = L.map('map').setView([27.7172, 85.3240], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let marker = L.marker([27.7172, 85.3240], {draggable: true}).addTo(map);
+
+    // नक्सामा क्लिक गर्दा वा marker तान्दा Lat/Long स्वतः परिवर्तन हुने
+    map.on('click', function(e) {
+        marker.setLatLng(e.latlng);
+        document.getElementById('latitude').value = e.latlng.lat.toFixed(4);
+        document.getElementById('longitude').value = e.latlng.lng.toFixed(4);
+    });
+
+    marker.on('dragend', function(e) {
+        const pos = marker.getLatLng();
+        document.getElementById('latitude').value = pos.lat.toFixed(4);
+        document.getElementById('longitude').value = pos.lng.toFixed(4);
+    });
+
+    // रिपोर्ट पठाउने JavaScript
+    document.getElementById('reportForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            type: document.getElementById('type').value,
+            description: document.getElementById('description').value,
+            latitude: parseFloat(document.getElementById('latitude').value),
+            longitude: parseFloat(document.getElementById('longitude').value),
+            reported_by: parseInt(document.getElementById('reported_by').value)
+        };
+        const msg = document.getElementById('response-msg');
+        msg.style.display = "block";
+        try {
+            const res = await fetch('http://127.0.0.1:8000/api/v1/report', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+            if(res.ok) {
+                msg.className = "success";
+                msg.innerHTML = `✅ सफलता! रिपोर्ट दर्ता भयो (ID: ${result.incident_id})`;
+                loadReports();
+            } else {
+                msg.className = "error";
+                msg.innerHTML = `❌ त्रुटि: ${result.detail}`;
+            }
+        } catch(err) {
+            msg.className = "error";
+            msg.innerHTML = `❌ ब्याकएन्ड सर्भरसँग जोडिन सकिएन!`;
+        }
+    });
+
+    // जोखिम र इमर्जेन्सी अलर्ट जाँच गर्ने
+    document.getElementById('riskForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const rainfall = document.getElementById('rainfall_mm').value;
+        const river = document.getElementById('river_level_m').value;
+        const pop = document.getElementById('population_high').value;
+        const riskMsg = document.getElementById('risk-msg');
+        const alertBox = document.getElementById('alert-box');
+        
+        riskMsg.style.display = "block";
+        alertBox.style.display = "block";
+
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/api/v1/calculate-risk?rainfall_mm=${rainfall}&river_level_m=${river}&population_high=${pop}`, { method: 'POST' });
+            const result = await res.json();
+            if(res.ok) {
+                riskMsg.className = "info";
+                riskMsg.innerHTML = `📊 जोखिम स्कोर: ${result.risk_score} | स्तर: ${result.risk_level}<br>💡 सुझाव: ${result.recommendation}`;
+                
+                if(result.risk_score >= 61) {
+                    alertBox.className = "critical-alert";
+                    alertBox.innerHTML = `🚨 आपतकालीन चेतावनी (CRITICAL ALERT): तत्काल उद्धार टोली परिचालन गर्नुपर्ने अवस्था छ!`;
+                } else {
+                    alertBox.className = "success";
+                    alertBox.innerHTML = `✅ अवस्था सामान्य नियन्त्रणभित्र छ। नियमित निगरानी गर्नुहोस्।`;
+                }
+            }
+        } catch(err) {
+            riskMsg.className = "error";
+            riskMsg.innerHTML = `❌ जोखिम गणना गर्न सकिएन।`;
+        }
+    });
+
+    // डेटाबेसबाट रिपोर्टहरू लोड गर्ने
+    async function loadReports() {
+        try {
+            const res = await fetch('http://127.0.0.1:8000/api/v1/reports');
+            const result = await res.json();
+            if(res.ok && result.data) {
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+                result.data.forEach(r => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${r.id}</td>
+                            <td>${r.type}</td>
+                            <td>${r.description}</td>
+                            <td>${r.latitude}, ${r.longitude}</td>
+                            <td>${r.status}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('reportsTable').style.display = 'table';
+            }
+        } catch(err) {
+            console.log('रिपोर्ट लोड भएन');
+        }
+    }
+
+    document.getElementById('loadReportsBtn').addEventListener('click', loadReports);
+</script>
+
+</body>
+</html>
