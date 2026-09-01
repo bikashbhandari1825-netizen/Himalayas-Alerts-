@@ -140,6 +140,13 @@
                         <option value="Sudurpashchim">सुदूरपश्चिम प्रदेश</option>
                     </select>
                 </div>
+                <div class="form-group">
+    <label>ठाउँ / गाउँ / सहरको नाम (Location Name):</label>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="location_name" placeholder="जस्तै: Pokhara, Lalitpur" required>
+        <button type="button" id="searchLocBtn" style="width: auto; padding: 0 15px;" class="risk-btn">नक्सामा खोज्नुहोस्</button>
+    </div>
+</div>
 
                 <div class="form-group">
                     <label>User ID:</label>
@@ -221,6 +228,39 @@
         document.getElementById('latitude').value = pos.lat.toFixed(4);
         document.getElementById('longitude').value = pos.lng.toFixed(4);
     });
+
+    // ठाउँको नामबाट म्याप र Lat/Long अटोमेटिक फेला पार्ने
+document.getElementById('searchLocBtn').addEventListener('click', async function() {
+    const locName = document.getElementById('location_name').value;
+    if(!locName) {
+        alert('कृपया पहिले ठाउँको नाम लेख्नुहोस्!');
+        return;
+    }
+
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locName + ', Nepal')}`);
+        const data = await response.json();
+        
+        if(data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+
+            // म्याप र मार्करलाई त्यो ठाउँमा सार्ने
+            marker.setLatLng([lat, lon]);
+            map.setView([lat, lon], 13);
+
+            // Lat र Long को बक्समा स्वतः भर्ने
+            document.getElementById('latitude').value = lat.toFixed(4);
+            document.getElementById('longitude').value = lon.toFixed(4);
+            
+            alert(`सफलतापूर्वक फेला पर्यो: ${locName}`);
+        } else {
+            alert('यो ठाउँ भेटिएन, कृपया सहि नाम लेख्नुहोस्।');
+        }
+    } catch (error) {
+        console.error('Location search error:', error);
+    }
+});
 
     // रिपोर्ट पठाउने JavaScript
     document.getElementById('reportForm').addEventListener('submit', async function(e) {
