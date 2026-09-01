@@ -131,3 +131,30 @@ def clear_all_reports(secret_key: str):
         return {"status": "success", "message": "सबै रिपोर्टहरू सफलतापूर्वक हटाइयो!"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    ADMIN_SECRET_KEY = "mero_gopriy_Neki##123$$"
+
+# एडमिन लगइन भेरिफिकेसनको लागि
+@app.post("/api/v1/admin/login")
+def admin_login(data: dict):
+    if data.get("password") == ADMIN_SECRET_KEY:
+        return {"status": "success", "message": "Login successful!"}
+    raise HTTPException(status_code=401, detail="गलत पासवर्ड!")
+
+# एउटा मात्र रिपोर्ट डिलिट गर्ने API (ID को आधारमा)
+@app.delete("/api/v1/reports/{report_id}")
+def delete_single_report(report_id: int, secret_key: str):
+    if secret_key != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Unauthorized!")
+    
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed!")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM incidents WHERE id = ?;", (report_id,))
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": f"Report {report_id} deleted."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
