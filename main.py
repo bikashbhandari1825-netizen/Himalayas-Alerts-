@@ -6,6 +6,20 @@ from database import get_db_connection
 
 app = FastAPI(title="Nepal Suraksha Backend", version="1.0")
 
+# 🟢 यो कोडलाई ठ्याक्कै यहाँ (एप र डेटाबेस कनेक्सनको बीचमा) राख्नुहोस्
+try:
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE incidents ADD COLUMN location_name TEXT;")
+        cursor.execute("ALTER TABLE incidents ADD COLUMN district TEXT;")
+        cursor.execute("ALTER TABLE incidents ADD COLUMN province TEXT;")
+        conn.commit()
+        conn.close()
+except Exception as e:
+    # यदि स्तम्भहरू पहिले नै बनेका छन् भने यसले इरर नदेखाई काम ચાલુ राख्छ
+    print("Database migration check:", e)
+
 class DisasterReport(BaseModel):
     type: str
     description: str
@@ -15,6 +29,8 @@ class DisasterReport(BaseModel):
     location_name: str = ""
     district: str = ""
     province: str = ""
+
+# ... (यसपछि तपाईँका बाँकी सबै API का कोडहरू हुन्छन्)
 
 
 @app.post("/api/v1/report")
