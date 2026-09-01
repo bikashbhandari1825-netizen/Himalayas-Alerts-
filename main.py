@@ -110,3 +110,24 @@ def calculate_risk(rainfall_mm: float, river_level_m: float, population_high: bo
 async def read_index():
     with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
+
+    # यो एउटा गुप्त पासवर्ड हो, जुन तपाईँलाई मात्रै थाहा हुन्छ (यसलाई पछि परिवर्तन पनि गर्न सक्नुहुन्छ)
+ADMIN_SECRET_KEY = "mero_gopriy_Nek##123$$"
+
+@app.delete("/api/v1/reports/clear-all")
+def clear_all_reports(secret_key: str):
+    # यदि पासवर्ड मिलेन भने डिलिट गर्न दिँदैन (Unauthorized Error फालिदिन्छ)
+    if secret_key != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Unauthorized! यो डेटा मेटाउने अधिकार तपाईँसँग छैन।")
+    
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed!")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM incidents;")
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": "सबै रिपोर्टहरू सफलतापूर्वक हटाइयो!"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
