@@ -438,6 +438,26 @@ async function searchDistrictOnly(district) {
         <a href="https://prakshepandaily.com/" target="_blank" style="color: #0066cc; text-decoration: underline; font-size: 14px;">📰 महत्त्वपूर्ण समाचार पोर्टल (News Link)</a>
     </div>
 </footer>
+<!-- Admin Login Section -->
+<div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px;">
+    <h3>🔐 एडमिन नियन्त्रण प्यानल (Admin Panel)</h3>
+    <input type="password" id="adminPassword" placeholder="एडमिन पासवर्ड हाल्नुहोस्..." style="padding: 8px; width: 250px;">
+    <button onclick="verifyAdmin()" style="padding: 8px 15px; background: #007bff; color: white; border: none; cursor: pointer;">लगइन गर्नुहोस्</button>
+</div>
 
+<script>
+let isAdminLoggedIn = false;
+
+function verifyAdmin() {
+    const password = document.getElementById("adminPassword").value;
+    if (password === "mero_gopriy_Neki##123$$") {
+        isAdminLoggedIn = true;
+        alert("लगइन सफल भयो! अब रिपोर्टहरूको छेउमा डिलिट बटन देखा पर्नेछ।");
+        loadReports(); 
+    } else {
+        alert("गलत पासवर्ड!");
+    }
+}
+</script>
 </body>
 </html>
