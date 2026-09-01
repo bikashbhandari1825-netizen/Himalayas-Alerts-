@@ -62,6 +62,8 @@
         .risk-btn:hover { background-color: #025aa5; }
         .fetch-btn { background-color: #5cb85c; width: auto; padding: 10px 20px; }
         .fetch-btn:hover { background-color: #4cae4c; }
+        .delete-btn { background-color: #dc3545; padding: 6px 12px; font-size: 0.85rem; width: auto; }
+        .delete-btn:hover { background-color: #bd2130; }
 
         #response-msg, #risk-msg, #alert-box { margin-top: 15px; padding: 12px; border-radius: 5px; text-align: center; font-weight: 500; display: none; }
         .success { background-color: #d4edda; color: #155724; }
@@ -118,11 +120,14 @@
                     <input type="number" step="any" id="longitude" value="85.3240" required readonly>
                 </div>
                 
-                <!-- नयाँ थपिएका फिल्डहरू (ठाउँ, जिल्ला, प्रदेश) -->
                 <div class="form-group">
                     <label>ठाउँ / गाउँ / सहरको नाम (Location Name):</label>
-                    <input type="text" id="location_name" placeholder="जस्तै: काठमाडौं, पोखरा" required>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="location_name" placeholder="जस्तै: Pokhara, Lalitpur" required>
+                        <button type="button" id="searchLocBtn" style="width: auto; padding: 0 15px;" class="risk-btn">नक्सामा खोज्नुहोस्</button>
+                    </div>
                 </div>
+
                 <div class="form-group">
                     <label>जिल्ला (District):</label>
                     <input type="text" id="district" placeholder="जस्तै: ललितपुर, जुम्ला" required>
@@ -140,13 +145,6 @@
                         <option value="Sudurpashchim">सुदूरपश्चिम प्रदेश</option>
                     </select>
                 </div>
-                <div class="form-group">
-    <label>ठाउँ / गाउँ / सहरको नाम (Location Name):</label>
-    <div style="display: flex; gap: 10px;">
-        <input type="text" id="location_name" placeholder="जस्तै: Pokhara, Lalitpur" required>
-        <button type="button" id="searchLocBtn" style="width: auto; padding: 0 15px;" class="risk-btn">नक्सामा खोज्नुहोस्</button>
-    </div>
-</div>
 
                 <div class="form-group">
                     <label>User ID:</label>
@@ -199,6 +197,7 @@
                 <th>स्थान (ठाउँ, जिल्ला, प्रदेश)</th>
                 <th>Lat, Long</th>
                 <th>Status</th>
+                <th id="actionHeader" style="display:none;">Action</th>
             </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -208,6 +207,8 @@
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    let isAdminLoggedIn = false;
+
     // म्याप सेटअप (काठमाडौं केन्द्रित)
     const map = L.map('map').setView([27.7172, 85.3240], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -228,39 +229,6 @@
         document.getElementById('latitude').value = pos.lat.toFixed(4);
         document.getElementById('longitude').value = pos.lng.toFixed(4);
     });
-
-    // ठाउँको नामबाट म्याप र Lat/Long अटोमेटिक फेला पार्ने
-document.getElementById('searchLocBtn').addEventListener('click', async function() {
-    const locName = document.getElementById('location_name').value;
-    if(!locName) {
-        alert('कृपया पहिले ठाउँको नाम लेख्नुहोस्!');
-        return;
-    }
-
-    try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locName + ', Nepal')}`);
-        const data = await response.json();
-        
-        if(data && data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-
-            // म्याप र मार्करलाई त्यो ठाउँमा सार्ने
-            marker.setLatLng([lat, lon]);
-            map.setView([lat, lon], 13);
-
-            // Lat र Long को बक्समा स्वतः भर्ने
-            document.getElementById('latitude').value = lat.toFixed(4);
-            document.getElementById('longitude').value = lon.toFixed(4);
-            
-            alert(`सफलतापूर्वक फेला पर्यो: ${locName}`);
-        } else {
-            alert('यो ठाउँ भेटिएन, कृपया सहि नाम लेख्नुहोस्।');
-        }
-    } catch (error) {
-        console.error('Location search error:', error);
-    }
-});
 
     // रिपोर्ट पठाउने JavaScript
     document.getElementById('reportForm').addEventListener('submit', async function(e) {
@@ -331,16 +299,24 @@ document.getElementById('searchLocBtn').addEventListener('click', async function
         }
     });
 
-    // डेटाबेसबाट रिपोर्टहरू लोड गर्ने
+    // डेटाबेसबाट रिपोर्टहरू लोड गर्ने (डिलिट बटन सहित)
     async function loadReports() {
         try {
             const res = await fetch("/api/v1/reports");
             const result = await res.json();
             if(res.ok && result.data) {
                 const tbody = document.getElementById('tableBody');
+                const actionHeader = document.getElementById('actionHeader');
                 tbody.innerHTML = '';
+
+                if (isAdminLoggedIn) {
+                    actionHeader.style.display = '';
+                } else {
+                    actionHeader.style.display = 'none';
+                }
+
                 result.data.forEach(r => {
-                    tbody.innerHTML += `
+                    let row = `
                         <tr>
                             <td>${r.id}</td>
                             <td>${r.type}</td>
@@ -348,8 +324,14 @@ document.getElementById('searchLocBtn').addEventListener('click', async function
                             <td>${r.location_name || '-'}, ${r.district || '-'}, ${r.province || '-'}</td>
                             <td>${r.latitude}, ${r.longitude}</td>
                             <td>${r.status}</td>
-                        </tr>
                     `;
+                    
+                    if (isAdminLoggedIn) {
+                        row += `<td><button class="delete-btn" onclick="deleteReport(${r.id})"><i class="fas fa-trash"></i> Delete</button></td>`;
+                    }
+                    
+                    row += `</tr>`;
+                    tbody.innerHTML += row;
                 });
                 document.getElementById('reportsTable').style.display = 'table';
             }
@@ -358,66 +340,96 @@ document.getElementById('searchLocBtn').addEventListener('click', async function
         }
     }
 
-    // अझ स्मार्ट र पावरफुल सर्च फंक्सन
-document.getElementById('searchLocBtn').addEventListener('click', async function() {
-    const locName = document.getElementById('location_name').value;
-    const districtName = document.getElementById('district').value; // जिल्लाको बक्सबाट पनि मद्दत लिने
-    
-    if(!locName) {
-        alert('कृपया पहिले ठाउँ वा वडाको नाम लेख्नुहोस्!');
-        return;
-    }
-
-    // ठाउँ र जिल्ला जोडून खोज्ने (जस्तै: "Chandannath 5, Jumla, Nepal")
-    const searchQuery = districtName ? `${locName}, ${districtName}, Nepal` : `${locName}, Nepal`;
-
-    try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
-        const data = await response.json();
-        
-        if(data && data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-
-            // म्याप र मार्करलाई त्यो ठाउँमा सार्ने
-            marker.setLatLng([lat, lon]);
-            map.setView([lat, lon], 14); // जुम लेभल बढाएर अझ नजिक देखाउने
-
-            // Lat र Long को बक्समा स्वतः भर्ने
-            document.getElementById('latitude').value = lat.toFixed(4);
-            document.getElementById('longitude').value = lon.toFixed(4);
-            
-            alert(`सफलतापूर्वक फेला पर्यो!`);
+    // एडमिन लगइन भेरिफिकेसन फंक्सन
+    function verifyAdmin() {
+        const password = document.getElementById("adminPassword").value;
+        if (password === "mero_gopriy_Neki##123$$") {
+            isAdminLoggedIn = true;
+            alert("लगइन सफल भयो! अब रिपोर्टहरूको छेउमा डिलिट बटन देखा पर्नेछ।");
+            loadReports(); 
         } else {
-            // यदि ठ्याक्कै वडा भेटेन भने कम्तीमा जिल्लाको सेन्टरमा म्याप लैजाने
-            if(districtName) {
-                alert(`वडा भेटिएन, तर ${districtName} जिल्लाको मुख्य क्षेत्र देखाइयो।`);
-                searchDistrictOnly(districtName);
-            } else {
-                alert('यो ठाउँ भेटिएन, कृपया सहि नाम लेख्नुहोस्।');
-            }
+            isAdminLoggedIn = false;
+            alert("गलत पासवर्ड!");
+            loadReports();
         }
-    } catch (error) {
-        console.error('Location search error:', error);
     }
-});
 
-// जिल्ला मात्र भेटेन भने जिल्लाको सेन्टर खोज्ने सहायक फंक्सन
-async function searchDistrictOnly(district) {
-    try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(district + ' District, Nepal')} `);
-        const dData = await res.json();
-        if(dData && dData.length > 0) {
-            const lat = parseFloat(dData[0].lat);
-            const lon = parseFloat(dData[0].lon);
-            marker.setLatLng([lat, lon]);
-            map.setView([lat, lon], 11);
-            document.getElementById('latitude').value = lat.toFixed(4);
-            document.getElementById('longitude').value = lon.toFixed(4);
+    // निश्चित ID भएको रिपोर्ट डिलिट गर्ने फंक्सन
+    async function deleteReport(id) {
+        if (!confirm(`के तपाईँ रिपोर्ट ID ${id} लाई मेटाउन चाहनुहुन्छ?`)) return;
+
+        const password = document.getElementById("adminPassword").value;
+        try {
+            const response = await fetch(`/api/v1/reports/${id}?secret_key=${encodeURIComponent(password)}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                alert("सफलतापूर्वक डिलिट भयो!");
+                loadReports();
+            } else {
+                const err = await response.json();
+                alert("डिलिट गर्न असफल: " + (err.detail || "Unauthorized"));
+            }
+        } catch (error) {
+            alert("त्रुटि देखा पर्यो!");
         }
-    } catch(e) { console.log(e); }
-}
+    }
 
+    // स्मार्ट र पावरफुल सर्च फंक्सन
+    document.getElementById('searchLocBtn').addEventListener('click', async function() {
+        const locName = document.getElementById('location_name').value;
+        const districtName = document.getElementById('district').value;
+        
+        if(!locName) {
+            alert('कृपया पहिले ठाउँ वा वडाको नाम लेख्नुहोस्!');
+            return;
+        }
+
+        const searchQuery = districtName ? `${locName}, ${districtName}, Nepal` : `${locName}, Nepal`;
+
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+            const data = await response.json();
+            
+            if(data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+
+                marker.setLatLng([lat, lon]);
+                map.setView([lat, lon], 14);
+
+                document.getElementById('latitude').value = lat.toFixed(4);
+                document.getElementById('longitude').value = lon.toFixed(4);
+                
+                alert(`सफलतापूर्वक फेला पर्यो!`);
+            } else {
+                if(districtName) {
+                    alert(`वडा भेटिएन, तर ${districtName} जिल्लाको मुख्य क्षेत्र देखाइयो।`);
+                    searchDistrictOnly(districtName);
+                } else {
+                    alert('यो ठाउँ भेटिएन, कृपया सहि नाम लेख्नुहोस्।');
+                }
+            }
+        } catch (error) {
+            console.error('Location search error:', error);
+        }
+    });
+
+    async function searchDistrictOnly(district) {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(district + ' District, Nepal')} `);
+            const dData = await res.json();
+            if(dData && dData.length > 0) {
+                const lat = parseFloat(dData[0].lat);
+                const lon = parseFloat(dData[0].lon);
+                marker.setLatLng([lat, lon]);
+                map.setView([lat, lon], 11);
+                document.getElementById('latitude').value = lat.toFixed(4);
+                document.getElementById('longitude').value = lon.toFixed(4);
+            }
+        } catch(e) { console.log(e); }
+    }
 
     document.getElementById('loadReportsBtn').addEventListener('click', loadReports);
 </script>
@@ -438,26 +450,15 @@ async function searchDistrictOnly(district) {
         <a href="https://prakshepandaily.com/" target="_blank" style="color: #0066cc; text-decoration: underline; font-size: 14px;">📰 महत्त्वपूर्ण समाचार पोर्टल (News Link)</a>
     </div>
 </footer>
+
 <!-- Admin Login Section -->
-<div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px;">
+<div class="container" style="margin-top: 20px; background: #fff3cd; border: 1px solid #ffeeba;">
     <h3>🔐 एडमिन नियन्त्रण प्यानल (Admin Panel)</h3>
-    <input type="password" id="adminPassword" placeholder="एडमिन पासवर्ड हाल्नुहोस्..." style="padding: 8px; width: 250px;">
-    <button onclick="verifyAdmin()" style="padding: 8px 15px; background: #007bff; color: white; border: none; cursor: pointer;">लगइन गर्नुहोस्</button>
+    <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <input type="password" id="adminPassword" placeholder="एडमिन पासवर्ड हाल्नुहोस्..." style="padding: 10px; width: 300px;">
+        <button onclick="verifyAdmin()" style="width: auto; padding: 10px 20px; background: #007bff;">लगइन गर्नुहोस्</button>
+    </div>
 </div>
 
-<script>
-let isAdminLoggedIn = false;
-
-function verifyAdmin() {
-    const password = document.getElementById("adminPassword").value;
-    if (password === "Nek##12$$") {
-        isAdminLoggedIn = true;
-        alert("लगइन सफल भयो! अब रिपोर्टहरूको छेउमा डिलिट बटन देखा पर्नेछ।");
-        loadReports(); 
-    } else {
-        alert("गलत पासवर्ड!");
-    }
-}
-</script>
 </body>
 </html>
