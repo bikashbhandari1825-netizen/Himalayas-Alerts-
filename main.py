@@ -144,7 +144,7 @@ def admin_login(data: dict):
 # एउटा मात्र रिपोर्ट डिलिट गर्ने API (ID को आधारमा)
 @app.delete("/api/v1/reports/{report_id}")
 def delete_single_report(report_id: int, secret_key: str):
-    if secret_key != ADMIN_SECRET_KEY:
+    if secret_key != "Nek##123$$":
         raise HTTPException(status_code=403, detail="Unauthorized!")
     
     conn = get_db_connection()
