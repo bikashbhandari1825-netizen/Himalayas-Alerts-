@@ -86,7 +86,7 @@
     <h1><i class="fas fa-shield-alt"></i> Nepal Suraksha - Advanced Disaster System</h1>
 </div>
 
-<!-- १. नक्सा र रिपोर्ट पठाउने फारम (Grid Layout for better look) -->
+<!-- १. नक्सा र रिपोर्ट पठाउने फारम -->
 <div class="container">
     <div class="grid-2">
         <div>
@@ -117,6 +117,30 @@
                     <label>Longitude:</label>
                     <input type="number" step="any" id="longitude" value="85.3240" required readonly>
                 </div>
+                
+                <!-- नयाँ थपिएका फिल्डहरू (ठाउँ, जिल्ला, प्रदेश) -->
+                <div class="form-group">
+                    <label>ठाउँ / गाउँ / सहरको नाम (Location Name):</label>
+                    <input type="text" id="location_name" placeholder="जस्तै: काठमाडौं, पोखरा" required>
+                </div>
+                <div class="form-group">
+                    <label>जिल्ला (District):</label>
+                    <input type="text" id="district" placeholder="जस्तै: ललितपुर, जुम्ला" required>
+                </div>
+                <div class="form-group">
+                    <label>प्रदेश (Province):</label>
+                    <select id="province" required>
+                        <option value="">प्रदेश छान्नुहोस्</option>
+                        <option value="Koshi">कोशी प्रदेश</option>
+                        <option value="Madhesh">मधेश प्रदेश</option>
+                        <option value="Bagmati">बागमती प्रदेश</option>
+                        <option value="Gandaki">गण्डकी प्रदेश</option>
+                        <option value="Lumbini">लुम्बिनी प्रदेश</option>
+                        <option value="Karnali">कर्णाली प्रदेश</option>
+                        <option value="Sudurpashchim">सुदूरपश्चिम प्रदेश</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label>User ID:</label>
                     <input type="number" id="reported_by" value="1" required>
@@ -165,7 +189,8 @@
                 <th>ID</th>
                 <th>प्रकार</th>
                 <th>विवरण</th>
-                <th>स्थान (Lat, Long)</th>
+                <th>स्थान (ठाउँ, जिल्ला, प्रदेश)</th>
+                <th>Lat, Long</th>
                 <th>Status</th>
             </tr>
         </thead>
@@ -205,7 +230,10 @@
             description: document.getElementById('description').value,
             latitude: parseFloat(document.getElementById('latitude').value),
             longitude: parseFloat(document.getElementById('longitude').value),
-            reported_by: parseInt(document.getElementById('reported_by').value)
+            reported_by: parseInt(document.getElementById('reported_by').value),
+            location_name: document.getElementById('location_name').value,
+            district: document.getElementById('district').value,
+            province: document.getElementById('province').value
         };
         const msg = document.getElementById('response-msg');
         msg.style.display = "block";
@@ -277,6 +305,7 @@
                             <td>${r.id}</td>
                             <td>${r.type}</td>
                             <td>${r.description}</td>
+                            <td>${r.location_name || '-'}, ${r.district || '-'}, ${r.province || '-'}</td>
                             <td>${r.latitude}, ${r.longitude}</td>
                             <td>${r.status}</td>
                         </tr>
