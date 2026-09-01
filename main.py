@@ -12,6 +12,10 @@ class DisasterReport(BaseModel):
     latitude: float
     longitude: float
     reported_by: int
+    location_name: str = ""
+    district: str = ""
+    province: str = ""
+
 
 @app.post("/api/v1/report")
 def create_report(report: DisasterReport):
@@ -20,8 +24,18 @@ def create_report(report: DisasterReport):
         raise HTTPException(status_code=500, detail="Database connection failed!")
     try:
         cursor = conn.cursor()
-        query = "INSERT INTO incidents (type, description, latitude, longitude, reported_by, status) VALUES (?, ?, ?, ?, ?, 'Pending');"
-        cursor.execute(query, (report.type, report.description, report.latitude, report.longitude, report.reported_by))
+        # डेटाबेसमा नयाँ स्तम्भहरू (location_name, district, province) थप्ने SQL query
+        query = "INSERT INTO incidents (type, description, latitude, longitude, reported_by, location_name, district, province, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending');"
+        cursor.execute(query, (
+            report.type, 
+            report.description, 
+            report.latitude, 
+            report.longitude, 
+            report.reported_by, 
+            report.location_name, 
+            report.district, 
+            report.province
+        ))
         conn.commit()
         incident_id = cursor.lastrowid
         conn.close()
@@ -35,7 +49,8 @@ def get_all_reports():
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed!")
     cursor = conn.cursor()
-    cursor.execute("SELECT id, type, description, latitude, longitude, status, reported_by FROM incidents ORDER BY id DESC")
+    # डेटाबेसबाट नयाँ स्तम्भहरू पनि तानेर ल्याउने
+    cursor.execute("SELECT id, type, description, latitude, longitude, status, reported_by, location_name, district, province FROM incidents ORDER BY id DESC")
     rows = cursor.fetchall()
     conn.close()
     
@@ -48,7 +63,10 @@ def get_all_reports():
             "latitude": row[3],
             "longitude": row[4],
             "status": row[5],
-            "reported_by": row[6]
+            "reported_by": row[6],
+            "location_name": row[7],
+            "district": row[8],
+            "province": row[9]
         })
     return {"status": "success", "data": reports}
 
@@ -71,6 +89,7 @@ def calculate_risk(rainfall_mm: float, river_level_m: float, population_high: bo
         "risk_level": level,
         "recommendation": "Evacuate immediately" if score >= 61 else "Monitor closely"
     }
+
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
     with open("index.html", "r", encoding="utf-8") as f:
